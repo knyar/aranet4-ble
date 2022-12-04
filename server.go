@@ -2,51 +2,53 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package main
+package aranet4 // import "sbinet.org/x/aranet4"
 
 import (
 	"bytes"
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"go.etcd.io/bbolt"
-	"sbinet.org/x/aranet4"
 )
 
-type server struct {
+type Server struct {
 	addr string // Aranet4 device address
 	mux  *http.ServeMux
 
 	mu    sync.RWMutex
 	db    *bbolt.DB
-	last  aranet4.Data
+	last  Data
 	plots struct {
 		CO2     bytes.Buffer
 		T, H, P bytes.Buffer
 	}
 }
 
-func newServer(addr, dbfile string) *server {
+func NewServer(addr, root, dbfile string) *Server {
 	db, err := bbolt.Open(dbfile, 0644, &bbolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		log.Panicf("could not open aranet4 db: %+v", err)
 	}
 
-	srv := &server{
+	srv := &Server{
 		addr: addr,
 		db:   db,
 		mux:  http.NewServeMux(),
 	}
-	srv.mux.HandleFunc("/", srv.handleRoot)
-	srv.mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {})
-	srv.mux.HandleFunc("/update", srv.handleUpdate)
-	srv.mux.HandleFunc("/plot-co2", srv.handlePlotCO2)
-	srv.mux.HandleFunc("/plot-h", srv.handlePlotH)
-	srv.mux.HandleFunc("/plot-p", srv.handlePlotP)
-	srv.mux.HandleFunc("/plot-t", srv.handlePlotT)
+
+	root = strings.TrimRight(root, "/")
+	srv.mux.HandleFunc(root+"/", srv.handleRoot)
+	srv.mux.HandleFunc(root+"/favicon.ico", func(w http.ResponseWriter, r *http.Request) {})
+	srv.mux.HandleFunc(root+"/update", srv.handleUpdate)
+	srv.mux.HandleFunc(root+"/plot-co2", srv.handlePlotCO2)
+	srv.mux.HandleFunc(root+"/plot-h", srv.handlePlotH)
+	srv.mux.HandleFunc(root+"/plot-p", srv.handlePlotP)
+	srv.mux.HandleFunc(root+"/plot-t", srv.handlePlotT)
 
 	err = srv.init()
 	if err != nil {
@@ -57,15 +59,15 @@ func newServer(addr, dbfile string) *server {
 	return srv
 }
 
-func (srv *server) Close() error {
+func (srv *Server) Close() error {
 	return srv.db.Close()
 }
 
-func (srv *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	srv.mux.ServeHTTP(w, r)
 }
 
-func (srv *server) handleRoot(w http.ResponseWriter, r *http.Request) {
+func (srv *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		fmt.Fprintf(w, "could not parse form: %+v", err)
@@ -114,7 +116,7 @@ func (srv *server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, page, refresh, srv.last.String())
 }
 
-func (srv *server) handleUpdate(w http.ResponseWriter, r *http.Request) {
+func (srv *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	err := retry(10, func() error {
 		return srv.update(-1)
 	})
@@ -127,7 +129,7 @@ func (srv *server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (srv *server) handlePlotCO2(w http.ResponseWriter, r *http.Request) {
+func (srv *Server) handlePlotCO2(w http.ResponseWriter, r *http.Request) {
 	srv.mu.RLock()
 	defer srv.mu.RUnlock()
 
@@ -135,7 +137,7 @@ func (srv *server) handlePlotCO2(w http.ResponseWriter, r *http.Request) {
 	w.Write(srv.plots.CO2.Bytes())
 }
 
-func (srv *server) handlePlotH(w http.ResponseWriter, r *http.Request) {
+func (srv *Server) handlePlotH(w http.ResponseWriter, r *http.Request) {
 	srv.mu.RLock()
 	defer srv.mu.RUnlock()
 
@@ -143,7 +145,7 @@ func (srv *server) handlePlotH(w http.ResponseWriter, r *http.Request) {
 	w.Write(srv.plots.H.Bytes())
 }
 
-func (srv *server) handlePlotP(w http.ResponseWriter, r *http.Request) {
+func (srv *Server) handlePlotP(w http.ResponseWriter, r *http.Request) {
 	srv.mu.RLock()
 	defer srv.mu.RUnlock()
 
@@ -151,7 +153,7 @@ func (srv *server) handlePlotP(w http.ResponseWriter, r *http.Request) {
 	w.Write(srv.plots.P.Bytes())
 }
 
-func (srv *server) handlePlotT(w http.ResponseWriter, r *http.Request) {
+func (srv *Server) handlePlotT(w http.ResponseWriter, r *http.Request) {
 	srv.mu.RLock()
 	defer srv.mu.RUnlock()
 
@@ -159,7 +161,7 @@ func (srv *server) handlePlotT(w http.ResponseWriter, r *http.Request) {
 	w.Write(srv.plots.T.Bytes())
 }
 
-func (srv *server) loop() {
+func (srv *Server) loop() {
 	var (
 		interval time.Duration
 		err      error

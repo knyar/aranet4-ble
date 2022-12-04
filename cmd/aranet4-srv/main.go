@@ -8,6 +8,8 @@ import (
 	"flag"
 	"log"
 	"net/http"
+
+	"sbinet.org/x/aranet4"
 )
 
 func main() {
@@ -26,7 +28,7 @@ func main() {
 }
 
 func xmain(addr, devID, db string) {
-	srv := newServer(devID, db)
+	srv := aranet4.NewServer(devID, "/", db)
 	defer srv.Close()
 
 	log.Printf("serving %q...", addr)

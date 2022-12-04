@@ -2,18 +2,16 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package main
+package aranet4 // import "sbinet.org/x/aranet4"
 
 import (
 	"reflect"
 	"testing"
 	"time"
-
-	"sbinet.org/x/aranet4"
 )
 
 func TestRWData(t *testing.T) {
-	want := aranet4.Data{
+	want := Data{
 		H:        100,
 		P:        1000,
 		T:        100.12,
@@ -30,7 +28,7 @@ func TestRWData(t *testing.T) {
 		t.Fatalf("could not marshal binary: %+v", err)
 	}
 
-	var got aranet4.Data
+	var got Data
 	err = unmarshalBinary(&got, buf)
 	if err != nil {
 		t.Fatalf("could not unmarshal binary: %+v", err)

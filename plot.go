@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package main
+package aranet4 // import "sbinet.org/x/aranet4"
 
 import (
 	"bytes"
@@ -15,10 +15,9 @@ import (
 	"gonum.org/v1/plot/vg"
 	"gonum.org/v1/plot/vg/draw"
 	"gonum.org/v1/plot/vg/vgimg"
-	"sbinet.org/x/aranet4"
 )
 
-func (srv *server) plot(data []aranet4.Data) error {
+func (srv *Server) plot(data []Data) error {
 	var err error
 
 	xs := make([]float64, 0, len(data))
@@ -46,7 +45,7 @@ func (srv *server) plot(data []aranet4.Data) error {
 	return nil
 }
 
-func (srv *server) plotCO2(xs []float64, data []aranet4.Data) error {
+func (srv *Server) plotCO2(xs []float64, data []Data) error {
 	var (
 		ys = make([]float64, 0, len(data))
 	)
@@ -59,7 +58,7 @@ func (srv *server) plotCO2(xs []float64, data []aranet4.Data) error {
 	return srv.genPlot(&srv.plots.CO2, xs, ys, "CO2 [ppm]", c)
 }
 
-func (srv *server) plotT(xs []float64, data []aranet4.Data) error {
+func (srv *Server) plotT(xs []float64, data []Data) error {
 	var (
 		ys = make([]float64, 0, len(data))
 	)
@@ -72,7 +71,7 @@ func (srv *server) plotT(xs []float64, data []aranet4.Data) error {
 	return srv.genPlot(&srv.plots.T, xs, ys, "T [°C]", c)
 }
 
-func (srv *server) plotH(xs []float64, data []aranet4.Data) error {
+func (srv *Server) plotH(xs []float64, data []Data) error {
 	var (
 		ys = make([]float64, 0, len(data))
 	)
@@ -85,7 +84,7 @@ func (srv *server) plotH(xs []float64, data []aranet4.Data) error {
 	return srv.genPlot(&srv.plots.H, xs, ys, "Humidity [%]", c)
 }
 
-func (srv *server) plotP(xs []float64, data []aranet4.Data) error {
+func (srv *Server) plotP(xs []float64, data []Data) error {
 	var (
 		ys = make([]float64, 0, len(data))
 	)
@@ -98,7 +97,7 @@ func (srv *server) plotP(xs []float64, data []aranet4.Data) error {
 	return srv.genPlot(&srv.plots.P, xs, ys, "Atmospheric Pressure [hPa]", c)
 }
 
-func (srv *server) genPlot(buf *bytes.Buffer, xs, ys []float64, label string, c color.NRGBA) error {
+func (srv *Server) genPlot(buf *bytes.Buffer, xs, ys []float64, label string, c color.NRGBA) error {
 
 	buf.Reset()
 

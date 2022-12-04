@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package main
+package aranet4 // import "sbinet.org/x/aranet4"
 
 import (
 	"encoding/binary"
@@ -13,14 +13,13 @@ import (
 	"time"
 
 	"go.etcd.io/bbolt"
-	"sbinet.org/x/aranet4"
 )
 
 const (
 	timeResolution int64 = 5 // seconds
 )
 
-func ltApprox(a, b aranet4.Data) bool {
+func ltApprox(a, b Data) bool {
 	at := a.Time.UTC().Unix()
 	bt := b.Time.UTC().Unix()
 	if abs(at-bt) < timeResolution {
@@ -40,7 +39,7 @@ var (
 	bucketData = []byte("aranet4")
 )
 
-func (srv *server) init() error {
+func (srv *Server) init() error {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 
@@ -93,9 +92,9 @@ func (srv *server) init() error {
 	return nil
 }
 
-func (srv *server) update(n int) error {
+func (srv *Server) update(n int) error {
 	var (
-		data []aranet4.Data
+		data []Data
 		err  error
 	)
 	switch {
@@ -124,8 +123,8 @@ func (srv *server) update(n int) error {
 	return srv.plot(data)
 }
 
-func (srv *server) rows(beg, end int64) ([]aranet4.Data, error) {
-	var rows []aranet4.Data
+func (srv *Server) rows(beg, end int64) ([]Data, error) {
+	var rows []Data
 	err := srv.db.View(func(tx *bbolt.Tx) error {
 		bkt := tx.Bucket(bucketData)
 		if bkt == nil {
@@ -133,7 +132,7 @@ func (srv *server) rows(beg, end int64) ([]aranet4.Data, error) {
 		}
 		return bkt.ForEach(func(k, v []byte) error {
 			var (
-				row aranet4.Data
+				row Data
 				err = unmarshalBinary(&row, v)
 			)
 			if err != nil {
@@ -161,7 +160,7 @@ func (srv *server) rows(beg, end int64) ([]aranet4.Data, error) {
 	return rows, nil
 }
 
-func (srv *server) write(vs []aranet4.Data) error {
+func (srv *Server) write(vs []Data) error {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 
@@ -229,18 +228,7 @@ func (srv *server) write(vs []aranet4.Data) error {
 
 const dataSize = 17
 
-func qualityFrom(co2 int) aranet4.Quality {
-	switch {
-	case co2 < 1000:
-		return 1
-	case co2 < 1400:
-		return 2
-	default:
-		return 3
-	}
-}
-
-func unmarshalBinary(data *aranet4.Data, p []byte) error {
+func unmarshalBinary(data *Data, p []byte) error {
 	if len(p) != dataSize {
 		return io.ErrShortBuffer
 	}
@@ -255,7 +243,7 @@ func unmarshalBinary(data *aranet4.Data, p []byte) error {
 	return nil
 }
 
-func marshalBinary(data aranet4.Data, p []byte) error {
+func marshalBinary(data Data, p []byte) error {
 	if len(p) != dataSize {
 		return io.ErrShortBuffer
 	}
@@ -269,8 +257,8 @@ func marshalBinary(data aranet4.Data, p []byte) error {
 	return nil
 }
 
-func (srv *server) fetchRows() ([]aranet4.Data, error) {
-	dev, err := aranet4.New(srv.addr)
+func (srv *Server) fetchRows() ([]Data, error) {
+	dev, err := New(srv.addr)
 	if err != nil {
 		return nil, fmt.Errorf("could not create aranet4 client: %w", err)
 	}
@@ -279,8 +267,8 @@ func (srv *server) fetchRows() ([]aranet4.Data, error) {
 	return dev.ReadAll()
 }
 
-func (srv *server) fetchRow() ([]aranet4.Data, error) {
-	dev, err := aranet4.New(srv.addr)
+func (srv *Server) fetchRow() ([]Data, error) {
+	dev, err := New(srv.addr)
 	if err != nil {
 		return nil, fmt.Errorf("could not create aranet4 client: %w", err)
 	}
@@ -290,11 +278,11 @@ func (srv *server) fetchRow() ([]aranet4.Data, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not retrieve aranet4 data: %w", err)
 	}
-	return []aranet4.Data{v}, nil
+	return []Data{v}, nil
 }
 
-func (srv *server) interval() (time.Duration, error) {
-	dev, err := aranet4.New(srv.addr)
+func (srv *Server) interval() (time.Duration, error) {
+	dev, err := New(srv.addr)
 	if err != nil {
 		return 0, fmt.Errorf("could not create aranet4 client: %w", err)
 	}
