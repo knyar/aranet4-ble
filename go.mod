@@ -1,6 +1,6 @@
 module sbinet.org/x/aranet4
 
-go 1.17
+go 1.19
 
 require (
 	github.com/muka/go-bluetooth v0.0.0-20211227071625-1c7f8793aa7e
