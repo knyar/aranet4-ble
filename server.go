@@ -126,7 +126,6 @@ func (srv *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	return
 }
 
 func (srv *Server) handlePlotCO2(w http.ResponseWriter, r *http.Request) {

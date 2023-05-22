@@ -299,7 +299,6 @@ func (dev *Device) readN(dst []Data, id byte) error {
 					return
 				}
 			}
-			return
 		})
 	}()
 
