@@ -15,25 +15,25 @@ const (
 	timeFmt = "2006-01-02 15:04:05 UTC"
 )
 
-const (
-	uuidDeviceService          = "f0cd1400-95da-4f4b-9ac8-aa55d312af0c"
-	uuidWriteCmd               = "f0cd1402-95da-4f4b-9ac8-aa55d312af0c"
-	uuidReadSample             = "f0cd1503-95da-4f4b-9ac8-aa55d312af0c"
-	uuidReadAll                = "f0cd3001-95da-4f4b-9ac8-aa55d312af0c"
-	uuidReadInterval           = "f0cd2002-95da-4f4b-9ac8-aa55d312af0c"
-	uuidReadTimeSeries         = "f0cd2003-95da-4f4b-9ac8-aa55d312af0c"
-	uuidReadSecondsSinceUpdate = "f0cd2004-95da-4f4b-9ac8-aa55d312af0c"
-	uuidReadTotalReadings      = "f0cd2001-95da-4f4b-9ac8-aa55d312af0c"
+var (
+	uuidDeviceService          = mustParseUUID("f0cd1400-95da-4f4b-9ac8-aa55d312af0c")
+	uuidWriteCmd               = mustParseUUID("f0cd1402-95da-4f4b-9ac8-aa55d312af0c")
+	uuidReadSample             = mustParseUUID("f0cd1503-95da-4f4b-9ac8-aa55d312af0c")
+	uuidReadAll                = mustParseUUID("f0cd3001-95da-4f4b-9ac8-aa55d312af0c")
+	uuidReadInterval           = mustParseUUID("f0cd2002-95da-4f4b-9ac8-aa55d312af0c")
+	uuidReadTimeSeries         = mustParseUUID("f0cd2003-95da-4f4b-9ac8-aa55d312af0c")
+	uuidReadSecondsSinceUpdate = mustParseUUID("f0cd2004-95da-4f4b-9ac8-aa55d312af0c")
+	uuidReadTotalReadings      = mustParseUUID("f0cd2001-95da-4f4b-9ac8-aa55d312af0c")
 
-	uuidGenericService = "00001800-0000-1000-8000-00805f9b34fb"
+	uuidGenericService = mustParseUUID("00001800-0000-1000-8000-00805f9b34fb")
 
-	uuidCommonService              = "0000180a-0000-1000-8000-00805f9b34fb"
-	uuidCommonReadManufacturerName = "00002a29-0000-1000-8000-00805f9b34fb"
-	uuidCommonReadModelNumber      = "00002a24-0000-1000-8000-00805f9b34fb"
-	uuidCommonReadSerialNumber     = "00002a25-0000-1000-8000-00805f9b34fb"
-	uuidCommonReadHWRevision       = "00002a27-0000-1000-8000-00805f9b34fb"
-	uuidCommonReadSWRevision       = "00002a28-0000-1000-8000-00805f9b34fb"
-	uuidCommonReadBattery          = "00002a19-0000-1000-8000-00805f9b34fb"
+	uuidCommonService              = mustParseUUID("0000180a-0000-1000-8000-00805f9b34fb")
+	uuidCommonReadManufacturerName = mustParseUUID("00002a29-0000-1000-8000-00805f9b34fb")
+	uuidCommonReadModelNumber      = mustParseUUID("00002a24-0000-1000-8000-00805f9b34fb")
+	uuidCommonReadSerialNumber     = mustParseUUID("00002a25-0000-1000-8000-00805f9b34fb")
+	uuidCommonReadHWRevision       = mustParseUUID("00002a27-0000-1000-8000-00805f9b34fb")
+	uuidCommonReadSWRevision       = mustParseUUID("00002a28-0000-1000-8000-00805f9b34fb")
+	uuidCommonReadBattery          = mustParseUUID("00002a19-0000-1000-8000-00805f9b34fb")
 )
 
 const (
@@ -47,6 +47,9 @@ var (
 	// ErrNoData indicates a missing data point.
 	// This may happen during sensor calibration.
 	ErrNoData = errors.New("aranet4: no data")
+
+	// errNoSvc indicates to service could be found for a given device.
+	errNoSvc = errors.New("aranet4: no service attached to device")
 )
 
 // Quality gives a general assessment of air quality (green/yellow/red).

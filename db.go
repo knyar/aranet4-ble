@@ -5,6 +5,7 @@
 package aranet4 // import "sbinet.org/x/aranet4"
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -258,7 +259,7 @@ func marshalBinary(data Data, p []byte) error {
 }
 
 func (srv *Server) fetchRows() ([]Data, error) {
-	dev, err := New(srv.addr)
+	dev, err := New(context.Background(), srv.addr)
 	if err != nil {
 		return nil, fmt.Errorf("could not create aranet4 client: %w", err)
 	}
@@ -268,7 +269,7 @@ func (srv *Server) fetchRows() ([]Data, error) {
 }
 
 func (srv *Server) fetchRow() ([]Data, error) {
-	dev, err := New(srv.addr)
+	dev, err := New(context.Background(), srv.addr)
 	if err != nil {
 		return nil, fmt.Errorf("could not create aranet4 client: %w", err)
 	}
@@ -282,7 +283,7 @@ func (srv *Server) fetchRow() ([]Data, error) {
 }
 
 func (srv *Server) interval() (time.Duration, error) {
-	dev, err := New(srv.addr)
+	dev, err := New(context.Background(), srv.addr)
 	if err != nil {
 		return 0, fmt.Errorf("could not create aranet4 client: %w", err)
 	}

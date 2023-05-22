@@ -3,10 +3,11 @@ module sbinet.org/x/aranet4
 go 1.19
 
 require (
-	github.com/muka/go-bluetooth v0.0.0-20211227071625-1c7f8793aa7e
+	github.com/muka/go-bluetooth v0.0.0-20220830075246-0746e3a1ea53
 	go-hep.org/x/hep v0.33.0
 	go.etcd.io/bbolt v1.3.7
 	gonum.org/v1/plot v0.13.0
+	tinygo.org/x/bluetooth v0.6.0
 )
 
 require (
@@ -16,12 +17,15 @@ require (
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/go-fonts/liberation v0.3.1 // indirect
 	github.com/go-latex/latex v0.0.0-20230307184459-12ec69307ad9 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-pdf/fpdf v0.8.0 // indirect
 	github.com/godbus/dbus/v5 v5.0.6 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/gonuts/binary v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/sirupsen/logrus v1.8.1 // indirect
+	github.com/saltosystems/winrt-go v0.0.0-20220826130236-ddc8202da421 // indirect
+	github.com/sirupsen/logrus v1.9.0 // indirect
+	github.com/tinygo-org/cbgo v0.0.4 // indirect
 	golang.org/x/exp v0.0.0-20230510235704-dd950f8aeaea // indirect
 	golang.org/x/image v0.7.0 // indirect
 	golang.org/x/sync v0.2.0 // indirect

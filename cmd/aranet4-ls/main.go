@@ -5,6 +5,7 @@
 package main // import "sbinet.org/x/aranet4/cmd/aranet4-ls"
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -28,18 +29,14 @@ func main() {
 
 	flag.Parse()
 
-	dev, err := aranet4.New(*addr)
+	dev, err := aranet4.New(context.Background(), *addr)
 	if err != nil {
 		log.Fatalf("could not create aranet4 client: %+v", err)
 	}
 	defer dev.Close()
 
 	if *verbose {
-		name, err := dev.Name()
-		if err != nil {
-			log.Printf("could not get device name: %+v", err)
-		}
-		log.Printf("name: %q", name)
+		log.Printf("name: %q", dev.Name())
 
 		vers, err := dev.Version()
 		if err != nil {
