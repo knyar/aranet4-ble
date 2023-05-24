@@ -17,9 +17,9 @@ import (
 var adapter = bluetooth.DefaultAdapter
 
 const (
-	defaultScanTimeout = 10 * time.Second
-	defaultConnTimeout = 10 * time.Second
-	defaultReadTimeout = 10 * time.Second
+	defaultScanTimeout = 120 * time.Second
+	defaultConnTimeout = 120 * time.Second
+	defaultReadTimeout = 120 * time.Second
 )
 
 type Device struct {
