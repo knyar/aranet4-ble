@@ -5,7 +5,6 @@
 package aranet4 // import "sbinet.org/x/aranet4"
 
 import (
-	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -91,37 +90,6 @@ func (srv *Server) init() error {
 	}
 
 	return nil
-}
-
-func (srv *Server) update(n int) error {
-	var (
-		data []Data
-		err  error
-	)
-	switch {
-	case n == 1:
-		data, err = srv.fetchRow()
-		if err != nil {
-			return err
-		}
-	default:
-		data, err = srv.fetchRows()
-		if err != nil {
-			return err
-		}
-	}
-
-	err = srv.write(data)
-	if err != nil {
-		return err
-	}
-
-	data, err = srv.rows(0, -1)
-	if err != nil {
-		return err
-	}
-
-	return srv.plot(data)
 }
 
 func (srv *Server) rows(beg, end int64) ([]Data, error) {
@@ -256,38 +224,4 @@ func marshalBinary(data Data, p []byte) error {
 	p[15] = uint8(data.Battery)
 	p[16] = uint8(data.Interval.Minutes())
 	return nil
-}
-
-func (srv *Server) fetchRows() ([]Data, error) {
-	dev, err := New(context.Background(), srv.addr)
-	if err != nil {
-		return nil, fmt.Errorf("could not create aranet4 client: %w", err)
-	}
-	defer dev.Close()
-
-	return dev.ReadAll()
-}
-
-func (srv *Server) fetchRow() ([]Data, error) {
-	dev, err := New(context.Background(), srv.addr)
-	if err != nil {
-		return nil, fmt.Errorf("could not create aranet4 client: %w", err)
-	}
-	defer dev.Close()
-
-	v, err := dev.Read()
-	if err != nil {
-		return nil, fmt.Errorf("could not retrieve aranet4 data: %w", err)
-	}
-	return []Data{v}, nil
-}
-
-func (srv *Server) interval() (time.Duration, error) {
-	dev, err := New(context.Background(), srv.addr)
-	if err != nil {
-		return 0, fmt.Errorf("could not create aranet4 client: %w", err)
-	}
-	defer dev.Close()
-
-	return dev.Interval()
 }

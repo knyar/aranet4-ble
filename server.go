@@ -6,6 +6,7 @@ package aranet4 // import "sbinet.org/x/aranet4"
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,8 +18,7 @@ import (
 )
 
 type Server struct {
-	addr string // Aranet4 device address
-	mux  *http.ServeMux
+	mux *http.ServeMux
 
 	mu    sync.RWMutex
 	db    *bbolt.DB
@@ -29,22 +29,21 @@ type Server struct {
 	}
 }
 
-func NewServer(addr, root, dbfile string) *Server {
+func NewServer(root, dbfile string) (*Server, error) {
 	db, err := bbolt.Open(dbfile, 0644, &bbolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
-		log.Panicf("could not open aranet4 db: %+v", err)
+		return nil, fmt.Errorf("could not open aranet4 db: %w", err)
 	}
 
 	srv := &Server{
-		addr: addr,
-		db:   db,
-		mux:  http.NewServeMux(),
+		db:  db,
+		mux: http.NewServeMux(),
 	}
 
 	root = strings.TrimRight(root, "/")
 	srv.mux.HandleFunc(root+"/", srv.handleRoot)
 	srv.mux.HandleFunc(root+"/favicon.ico", func(w http.ResponseWriter, r *http.Request) {})
-	srv.mux.HandleFunc(root+"/update", srv.handleUpdate)
+	srv.mux.HandleFunc(root+"/post", srv.handleIngest)
 	srv.mux.HandleFunc(root+"/plot-co2", srv.handlePlotCO2)
 	srv.mux.HandleFunc(root+"/plot-h", srv.handlePlotH)
 	srv.mux.HandleFunc(root+"/plot-p", srv.handlePlotP)
@@ -52,11 +51,11 @@ func NewServer(addr, root, dbfile string) *Server {
 
 	err = srv.init()
 	if err != nil {
-		log.Panicf("could not initialize server: %+v", err)
+		_ = db.Close()
+		return nil, fmt.Errorf("could not initialize server: %w", err)
 	}
 
-	go srv.loop()
-	return srv
+	return srv, nil
 }
 
 func (srv *Server) Close() error {
@@ -116,15 +115,33 @@ func (srv *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, page, refresh, srv.last.String())
 }
 
-func (srv *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
-	err := retry(10, func() error {
-		return srv.update(-1)
-	})
+func (srv *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		err := fmt.Errorf("invalid HTTP method: %s", r.Method)
+		log.Printf("%+v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var (
+		vs  []Data
+		err = json.NewDecoder(r.Body).Decode(&vs)
+	)
 	if err != nil {
-		fmt.Fprintf(w, "could not fetch update samples: %+v\n", err)
+		err = fmt.Errorf("could not decode JSON payload: %w", err)
+		log.Printf("%+v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err = srv.write(vs)
+	if err != nil {
+		err = fmt.Errorf("could not store data: %w", err)
+		log.Printf("%+v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -158,53 +175,4 @@ func (srv *Server) handlePlotT(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("content-type", "image/png")
 	w.Write(srv.plots.T.Bytes())
-}
-
-func (srv *Server) loop() {
-	var (
-		interval time.Duration
-		err      error
-	)
-	err = retry(5, func() error {
-		interval, err = srv.interval()
-		return err
-	})
-	if err != nil {
-		log.Panicf("could not fetch refresh frequency: %+v", err)
-	}
-
-	log.Printf("refresh frequency: %v", interval)
-	tck := time.NewTicker(interval)
-	defer tck.Stop()
-
-	log.Printf("fetching history data...")
-	err = retry(5, func() error {
-		return srv.update(-1)
-	})
-	if err != nil {
-		log.Printf("could not update db: %+v", err)
-	}
-	log.Printf("starting loop...")
-	for range tck.C {
-		log.Printf("tick: %s", time.Now().UTC().Format("2006-01-02 15:04:05"))
-		err := retry(5, func() error {
-			return srv.update(1)
-		})
-		if err != nil {
-			log.Printf("could not update db: %+v", err)
-		}
-	}
-}
-
-func retry(n int, f func() error) error {
-	var err error
-	for i := 0; i < n; i++ {
-		err = f()
-		if err != nil {
-			log.Printf("retry %d/%d failed with: %+v", i+1, n, err)
-			continue
-		}
-		return nil
-	}
-	return err
 }

@@ -17,22 +17,24 @@ func main() {
 	log.SetFlags(0)
 
 	var (
-		addr  = flag.String("addr", ":8080", "[host]:addr to serve")
-		devID = flag.String("device", "F5:6C:BE:D5:61:47", "MAC address of Aranet4")
-		db    = flag.String("db", "data.db", "path to DB file")
+		addr = flag.String("addr", ":8080", "[host]:addr to serve")
+		db   = flag.String("db", "data.db", "path to DB file")
 	)
 
 	flag.Parse()
 
-	xmain(*addr, *devID, *db)
+	xmain(*addr, *db)
 }
 
-func xmain(addr, devID, db string) {
-	srv := aranet4.NewServer(devID, "/", db)
+func xmain(addr, db string) {
+	srv, err := aranet4.NewServer("/", db)
+	if err != nil {
+		log.Panicf("could not create aranet4 server: %+v", err)
+	}
 	defer srv.Close()
 
 	log.Printf("serving %q...", addr)
-	err := http.ListenAndServe(addr, srv)
+	err = http.ListenAndServe(addr, srv)
 	if err != nil {
 		log.Panicf("could not serve %q: %+v", addr, err)
 	}
