@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"time"
 
@@ -270,50 +271,68 @@ func (dev *Device) readN(dst []Data, id byte) error {
 	}
 
 	var (
-		done        = make(chan struct{})
+		done        = make(chan struct{}) // we are done extracting notifications
+		quit        = make(chan struct{}) // there was some error during notifications
 		ctx, cancel = context.WithTimeout(context.Background(), defaultReadTimeout)
 		errc        = make(chan error)
 	)
 	defer cancel()
 
-	go func() {
-		errc <- c.EnableNotifications(func(p []byte) {
-			param := p[0]
-			if param != id {
-				errc <- fmt.Errorf("invalid parameter: got=0x%x, want=0x%x", param, id)
+	err = c.EnableNotifications(func(p []byte) {
+		select {
+		case <-done:
+			return
+		case <-quit:
+			return
+		default:
+		}
+		param := p[0]
+		if param != id {
+			close(quit)
+			errc <- fmt.Errorf("invalid parameter: got=0x%x, want=0x%x", param, id)
+			return
+		}
+
+		idx := int(binary.LittleEndian.Uint16(p[1:]) - 1)
+		cnt := int(p[3])
+		if cnt == 0 {
+			close(done)
+			return
+		}
+		max := min(idx+cnt, len(dst)) // a new sample may have appeared
+		dec := newDecoder(bytes.NewReader(p[4:]))
+		for i := idx; i < max; i++ {
+			err := dec.readField(id, &dst[i])
+			if err != nil {
+				close(quit)
+				errc <- fmt.Errorf("could not read param=%d, idx=%d: %w", id, i, err)
 				return
 			}
-
-			idx := int(binary.LittleEndian.Uint16(p[1:]) - 1)
-			cnt := int(p[3])
-			if cnt == 0 {
-				close(done)
-				return
-			}
-			max := min(idx+cnt, len(dst)) // a new sample may have appeared
-			dec := newDecoder(bytes.NewReader(p[4:]))
-			for i := idx; i < max; i++ {
-				err := dec.readField(id, &dst[i])
-				if err != nil {
-					errc <- fmt.Errorf("could not read param=%d, idx=%d: %w", id, i, err)
-					return
-				}
-			}
-		})
-	}()
-
-	err = <-errc
+		}
+	})
 	if err != nil {
 		return fmt.Errorf("could not start notifications: %w", err)
 	}
+	defer c.EnableNotifications(nil)
 
 	select {
 	case <-ctx.Done():
-		err = ctx.Err()
+		err = errors.Join(
+			ctx.Err(),
+			c.EnableNotifications(nil),
+		)
 		return fmt.Errorf("could not read notified data: %w", err)
 	case <-done:
+		err = c.EnableNotifications(nil)
+		if err != nil {
+			return fmt.Errorf("could not stop notifications: %w", err)
+		}
 		return nil
 	case err = <-errc:
+		err = errors.Join(
+			err,
+			c.EnableNotifications(nil),
+		)
 		return fmt.Errorf("could not read notified data: %w", err)
 	}
 }
