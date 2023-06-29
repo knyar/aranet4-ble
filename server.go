@@ -5,9 +5,9 @@
 package aranet4 // import "sbinet.org/x/aranet4"
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"strings"
@@ -20,13 +20,13 @@ import (
 type Server struct {
 	mux *http.ServeMux
 
-	mu    sync.RWMutex
-	db    *bbolt.DB
-	last  Data
-	plots struct {
-		CO2     bytes.Buffer
-		T, H, P bytes.Buffer
-	}
+	mu   sync.RWMutex
+	db   *bbolt.DB
+	ids  []string
+	mgrs map[string]*manager
+
+	root string
+	tmpl *template.Template
 }
 
 func NewServer(root, dbfile string) (*Server, error) {
@@ -36,8 +36,11 @@ func NewServer(root, dbfile string) (*Server, error) {
 	}
 
 	srv := &Server{
-		db:  db,
-		mux: http.NewServeMux(),
+		db:   db,
+		mux:  http.NewServeMux(),
+		mgrs: make(map[string]*manager),
+		root: root,
+		tmpl: template.Must(template.New("aranet4").Parse(page)),
 	}
 
 	root = strings.TrimRight(root, "/")
@@ -74,6 +77,14 @@ func (srv *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	mgr, err := srv.mgrFor(r)
+	if err != nil {
+		err = fmt.Errorf("could not find device manager: %w", err)
+		fmt.Fprintf(w, "%+v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	cnv := func(name string) int64 {
 		v := r.Form.Get(name)
 		if v == "" {
@@ -94,25 +105,57 @@ func (srv *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 
-	data, err := srv.rows(beg, end)
+	data, err := mgr.rows(srv.db, beg, end)
 	if err != nil {
-		fmt.Fprintf(w, "could not read rows from db: %+v", err)
+		err = fmt.Errorf("could not read rows for device=%q from db: %w", mgr.id, err)
+		fmt.Fprintf(w, "%+v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	err = srv.plot(data)
+	err = mgr.plot(data)
 	if err != nil {
-		fmt.Fprintf(w, "could not create plots: %+v", err)
+		err = fmt.Errorf("could not create plots for device=%q: %w", mgr.id, err)
+		fmt.Fprintf(w, "%+v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	refresh := int(srv.last.Interval.Seconds())
+	refresh := int(mgr.last.Interval.Seconds())
 	if refresh == 0 {
 		refresh = 10
 	}
-	fmt.Fprintf(w, page, refresh, srv.last.String())
+	ctx := struct {
+		Root     string
+		Devices  []string
+		DeviceID string
+		Status   string
+		Refresh  int
+		From     string
+		To       string
+	}{
+		Root:     srv.root,
+		Devices:  srv.ids,
+		DeviceID: mgr.id,
+		Status:   mgr.last.String(),
+		Refresh:  refresh,
+	}
+
+	if beg > 0 {
+		ctx.From = time.Unix(beg, 0).UTC().Format("2006-01-02")
+	}
+	if end > 0 {
+		ctx.To = time.Unix(end, 0).UTC().Format("2006-01-02")
+	}
+
+	err = srv.tmpl.Execute(w, ctx)
+	if err != nil {
+		err = fmt.Errorf("could not display page for device=%q: %w", mgr.id, err)
+		fmt.Fprintf(w, "%+v", err)
+		log.Printf("error: %+v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func (srv *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
@@ -124,8 +167,11 @@ func (srv *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var (
-		vs  []Data
-		err = json.NewDecoder(r.Body).Decode(&vs)
+		req struct {
+			ID   string `json:"device_id"`
+			Data []Data `json:"data"`
+		}
+		err = json.NewDecoder(r.Body).Decode(&req)
 	)
 	if err != nil {
 		err = fmt.Errorf("could not decode JSON payload: %w", err)
@@ -134,9 +180,17 @@ func (srv *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = srv.write(vs)
+	mgr, ok := srv.mgrs[req.ID]
+	if mgr == nil || !ok {
+		err := fmt.Errorf("could not find device manager for device=%q", req.ID)
+		fmt.Fprintf(w, "%+v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err = srv.write(mgr.id, req.Data)
 	if err != nil {
-		err = fmt.Errorf("could not store data: %w", err)
+		err = fmt.Errorf("could not store data for device=%q: %w", req.ID, err)
 		log.Printf("%+v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -149,30 +203,79 @@ func (srv *Server) handlePlotCO2(w http.ResponseWriter, r *http.Request) {
 	srv.mu.RLock()
 	defer srv.mu.RUnlock()
 
+	mgr, err := srv.mgrFor(r)
+	if err != nil {
+		err = fmt.Errorf("could not find device manager: %w", err)
+		fmt.Fprintf(w, "%+v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	w.Header().Set("content-type", "image/png")
-	w.Write(srv.plots.CO2.Bytes())
+	w.Write(mgr.plots.CO2.Bytes())
 }
 
 func (srv *Server) handlePlotH(w http.ResponseWriter, r *http.Request) {
 	srv.mu.RLock()
 	defer srv.mu.RUnlock()
 
+	mgr, err := srv.mgrFor(r)
+	if err != nil {
+		err = fmt.Errorf("could not find device manager: %w", err)
+		fmt.Fprintf(w, "%+v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	w.Header().Set("content-type", "image/png")
-	w.Write(srv.plots.H.Bytes())
+	w.Write(mgr.plots.H.Bytes())
 }
 
 func (srv *Server) handlePlotP(w http.ResponseWriter, r *http.Request) {
 	srv.mu.RLock()
 	defer srv.mu.RUnlock()
 
+	mgr, err := srv.mgrFor(r)
+	if err != nil {
+		err = fmt.Errorf("could not find device manager: %w", err)
+		fmt.Fprintf(w, "%+v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	w.Header().Set("content-type", "image/png")
-	w.Write(srv.plots.P.Bytes())
+	w.Write(mgr.plots.P.Bytes())
 }
 
 func (srv *Server) handlePlotT(w http.ResponseWriter, r *http.Request) {
 	srv.mu.RLock()
 	defer srv.mu.RUnlock()
 
+	mgr, err := srv.mgrFor(r)
+	if err != nil {
+		err = fmt.Errorf("could not find device manager: %w", err)
+		fmt.Fprintf(w, "%+v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	w.Header().Set("content-type", "image/png")
-	w.Write(srv.plots.T.Bytes())
+	w.Write(mgr.plots.T.Bytes())
+}
+
+func (srv *Server) mgrFor(r *http.Request) (*manager, error) {
+	id := r.Form.Get("device_id")
+	if id == "" {
+		if len(srv.mgrs) > 1 {
+			return nil, fmt.Errorf("could not find device_id parameter form")
+		}
+		id = srv.ids[0]
+	}
+
+	mgr, ok := srv.mgrs[id]
+	if !ok {
+		return nil, fmt.Errorf("could not find manager for device=%q", id)
+	}
+
+	return mgr, nil
 }

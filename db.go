@@ -36,7 +36,8 @@ func abs(v int64) int64 {
 }
 
 var (
-	bucketData = []byte("aranet4")
+	bucketRoot = []byte("aranet4")
+	bucketIDs  = []byte("device-ids")
 )
 
 func (srv *Server) init() error {
@@ -44,92 +45,77 @@ func (srv *Server) init() error {
 	defer srv.mu.Unlock()
 
 	err := srv.db.Update(func(tx *bbolt.Tx) error {
-		data, err := tx.CreateBucketIfNotExists(bucketData)
+		root, err := tx.CreateBucketIfNotExists(bucketRoot)
 		if err != nil {
-			return fmt.Errorf("could not create %q bucket: %w", bucketData, err)
+			return fmt.Errorf("could not create %q bucket: %w", bucketRoot, err)
 		}
-		if data == nil {
-			return fmt.Errorf("could not create %q bucket", bucketData)
+		if root == nil {
+			return fmt.Errorf("could not create %q bucket", bucketRoot)
 		}
 
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("could not setup aranet4 db buckets: %w", err)
-	}
-
-	err = srv.db.View(func(tx *bbolt.Tx) error {
-		bkt := tx.Bucket(bucketData)
-		if bkt == nil {
-			return fmt.Errorf("could not find %q bucket", bucketData)
+		ids, err := root.CreateBucketIfNotExists(bucketIDs)
+		if err != nil {
+			return fmt.Errorf("could not create %q bucket: %w", bucketIDs, err)
 		}
-		return bkt.ForEach(func(k, v []byte) error {
-			id := int64(binary.LittleEndian.Uint64(k))
-			if id-srv.last.Time.UTC().Unix() > timeResolution {
-				return unmarshalBinary(&srv.last, v)
-			}
+		if ids == nil {
+			return fmt.Errorf("could not create %q bucket", bucketIDs)
+		}
+
+		return ids.ForEach(func(k, v []byte) error {
+			id := string(k)
+			srv.ids = append(srv.ids, id)
+			srv.mgrs[id] = newManager(id)
 			return nil
 		})
 	})
 	if err != nil {
-		return fmt.Errorf("could not find last data sample: %w", err)
+		return fmt.Errorf("could not setup aranet4 db buckets: %w", err)
 	}
+	sort.Strings(srv.ids)
 
-	var (
-		beg int64 = 0
-		end int64 = -1
-	)
-	data, err := srv.rows(beg, end)
-	if err != nil {
-		return fmt.Errorf("could not read data from db: %w", err)
-	}
+	for _, mgr := range srv.mgrs {
+		err = srv.db.View(func(tx *bbolt.Tx) error {
+			root := tx.Bucket(bucketRoot)
+			if root == nil {
+				return fmt.Errorf("could not find %q bucket", bucketRoot)
+			}
 
-	err = srv.plot(data)
-	if err != nil {
-		return fmt.Errorf("could not generate initial plots: %w", err)
+			bkt := root.Bucket([]byte(mgr.id))
+			if bkt == nil {
+				return fmt.Errorf("could not find data bucket for device %q", mgr.id)
+			}
+
+			return bkt.ForEach(func(k, v []byte) error {
+				id := int64(binary.LittleEndian.Uint64(k))
+				if id-mgr.last.Time.UTC().Unix() > timeResolution {
+					return unmarshalBinary(&mgr.last, v)
+				}
+				return nil
+			})
+		})
+		if err != nil {
+			return fmt.Errorf("could not find last data sample: %w", err)
+		}
+
+		var (
+			beg int64 = 0
+			end int64 = -1
+		)
+		data, err := mgr.rows(srv.db, beg, end)
+		if err != nil {
+			return fmt.Errorf("could not read data from db: %w", err)
+		}
+
+		err = mgr.plot(data)
+		if err != nil {
+			return fmt.Errorf("could not generate initial plots: %w", err)
+		}
 	}
 
 	return nil
 }
 
-func (srv *Server) rows(beg, end int64) ([]Data, error) {
-	var rows []Data
-	err := srv.db.View(func(tx *bbolt.Tx) error {
-		bkt := tx.Bucket(bucketData)
-		if bkt == nil {
-			return fmt.Errorf("could not find %q bucket", bucketData)
-		}
-		return bkt.ForEach(func(k, v []byte) error {
-			var (
-				row Data
-				err = unmarshalBinary(&row, v)
-			)
-			if err != nil {
-				return err
-			}
-			id := row.Time.UTC().Unix()
-			if beg > id {
-				return nil
-			}
-			if end > 0 && id > end {
-				return nil
-			}
-			rows = append(rows, row)
-			return nil
-		})
-	})
-	if err != nil {
-		return nil, fmt.Errorf("could not read rows: %w", err)
-	}
-
-	sort.Slice(rows, func(i, j int) bool {
-		return ltApprox(rows[i], rows[j])
-	})
-
-	return rows, nil
-}
-
-func (srv *Server) write(vs []Data) error {
+func (srv *Server) write(id string, vs []Data) error {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 
@@ -141,10 +127,15 @@ func (srv *Server) write(vs []Data) error {
 		return ltApprox(vs[i], vs[j])
 	})
 
+	mgr, ok := srv.mgrs[id]
+	if mgr == nil || !ok {
+		return fmt.Errorf("could not find device manager for id=%q", id)
+	}
+
 	// consolidate data-from-sensor and time-series from db.
 	idx := len(vs)
 	for i, v := range vs {
-		if ltApprox(srv.last, v) {
+		if ltApprox(mgr.last, v) {
 			idx = i
 			break
 		}
@@ -158,11 +149,16 @@ func (srv *Server) write(vs []Data) error {
 	if len(vs) > 1 {
 		plural = "s"
 	}
-	log.Printf("writing %d new sample%s to db...", len(vs), plural)
+	log.Printf("writing %d new sample%s to db for device=%q...", len(vs), plural, id)
 	err := srv.db.Update(func(tx *bbolt.Tx) error {
-		bkt := tx.Bucket(bucketData)
+		root := tx.Bucket(bucketRoot)
+		if root == nil {
+			return fmt.Errorf("could not access %q bucket", bucketRoot)
+		}
+
+		bkt := root.Bucket([]byte(id))
 		if bkt == nil {
-			return fmt.Errorf("could not access %q bucket", bucketData)
+			return fmt.Errorf("could not access data bucket for device %q", id)
 		}
 
 		for _, v := range vs {
@@ -181,9 +177,9 @@ func (srv *Server) write(vs []Data) error {
 			if err != nil {
 				return fmt.Errorf("could not store sample %v: %w", v, err)
 			}
-			if ltApprox(srv.last, v) {
-				srv.last = v
-				srv.last.Quality = qualityFrom(srv.last.CO2)
+			if ltApprox(mgr.last, v) {
+				mgr.last = v
+				mgr.last.Quality = qualityFrom(mgr.last.CO2)
 			}
 		}
 

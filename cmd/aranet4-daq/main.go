@@ -139,8 +139,16 @@ func (srv *server) upload(vs ...aranet4.Data) error {
 	}
 	log.Printf("uploading %d data points...", len(vs))
 
+	data := struct {
+		DevID string         `json:"device_id"`
+		Data  []aranet4.Data `json:"data"`
+	}{
+		DevID: srv.id,
+		Data:  vs,
+	}
+
 	buf := new(bytes.Buffer)
-	err := json.NewEncoder(buf).Encode(vs)
+	err := json.NewEncoder(buf).Encode(data)
 	if err != nil {
 		return fmt.Errorf("could not encode data to JSON: %w", err)
 	}

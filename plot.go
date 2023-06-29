@@ -17,7 +17,7 @@ import (
 	"gonum.org/v1/plot/vg/vgimg"
 )
 
-func (srv *Server) plot(data []Data) error {
+func (srv *manager) plot(data []Data) error {
 	var err error
 
 	xs := make([]float64, 0, len(data))
@@ -45,7 +45,7 @@ func (srv *Server) plot(data []Data) error {
 	return nil
 }
 
-func (srv *Server) plotCO2(xs []float64, data []Data) error {
+func (srv *manager) plotCO2(xs []float64, data []Data) error {
 	var (
 		ys = make([]float64, 0, len(data))
 	)
@@ -58,7 +58,7 @@ func (srv *Server) plotCO2(xs []float64, data []Data) error {
 	return srv.genPlot(&srv.plots.CO2, xs, ys, "CO2 [ppm]", c)
 }
 
-func (srv *Server) plotT(xs []float64, data []Data) error {
+func (srv *manager) plotT(xs []float64, data []Data) error {
 	var (
 		ys = make([]float64, 0, len(data))
 	)
@@ -71,7 +71,7 @@ func (srv *Server) plotT(xs []float64, data []Data) error {
 	return srv.genPlot(&srv.plots.T, xs, ys, "T [°C]", c)
 }
 
-func (srv *Server) plotH(xs []float64, data []Data) error {
+func (srv *manager) plotH(xs []float64, data []Data) error {
 	var (
 		ys = make([]float64, 0, len(data))
 	)
@@ -84,7 +84,7 @@ func (srv *Server) plotH(xs []float64, data []Data) error {
 	return srv.genPlot(&srv.plots.H, xs, ys, "Humidity [%]", c)
 }
 
-func (srv *Server) plotP(xs []float64, data []Data) error {
+func (srv *manager) plotP(xs []float64, data []Data) error {
 	var (
 		ys = make([]float64, 0, len(data))
 	)
@@ -97,11 +97,12 @@ func (srv *Server) plotP(xs []float64, data []Data) error {
 	return srv.genPlot(&srv.plots.P, xs, ys, "Atmospheric Pressure [hPa]", c)
 }
 
-func (srv *Server) genPlot(buf *bytes.Buffer, xs, ys []float64, label string, c color.NRGBA) error {
+func (srv *manager) genPlot(buf *bytes.Buffer, xs, ys []float64, label string, c color.NRGBA) error {
 
 	buf.Reset()
 
 	plt := hplot.New()
+	plt.Title.Text = "Device: " + srv.id
 	plt.Y.Label.Text = label
 	plt.X.Tick.Marker = plot.TimeTicks{Format: "2006-01-02\n15:04"}
 
@@ -144,35 +145,46 @@ const page = `
 <html>
 	<head>
 		<title>Aranet4 monitoring</title>
-		<meta http-equiv="refresh" content="%d">
+		<meta http-equiv="refresh" content="{{.Refresh}}">
 	</head>
 
 	<body>
+{{- if .Devices}}
+		<h2>Devices</h2>
+		<ul>
+{{- with $ctx := .}}
+{{- range .Devices}}
+			<li><a href="{{$ctx.Root}}?device_id={{.}}&from={{$ctx.From}}&to={{$ctx.To}}">{{.}}</a></li>
+{{- end}}
+{{- end}}
+		</ul>
+{{- end}}
 		<pre>
-%s
+Device:      {{.DeviceID}}
+{{.Status}}
 		</pre>
 		<!-- CO2 -->
 		<hr>
         <div class="row align-items-center justify-content-center">
-		  <img src="/plot-co2"/>
+		  <img src="{{.Root}}plot-co2"/>
         </div>
 
 		<!-- Temperature -->
 		<hr>
         <div class="row align-items-center justify-content-center">
-		  <img src="/plot-t"/>
+		  <img src="{{.Root}}plot-t"/>
         </div>
 		
 		<!-- Humidity -->
 		<hr>
         <div class="row align-items-center justify-content-center">
-		  <img src="/plot-h"/>
+		  <img src="{{.Root}}plot-h"/>
         </div>
 
 		<!-- Pressure -->
 		<hr>
         <div class="row align-items-center justify-content-center">
-		  <img src="/plot-p"/>
+		  <img src="{{.Root}}plot-p"/>
         </div>
 	</body>
 </html>
