@@ -8,9 +8,9 @@ environment:
  GOFLAGS: -mod=readonly
  PATH: /home/build/sdk/go/bin:/usr/bin:/home/build/go/bin
 tasks:
- - install_go1_19: |
+ - install_go1_20: |
      mkdir -p /home/build/sdk
-     curl -L https://golang.org/dl/go1.19.linux-amd64.tar.gz | tar -C /home/build/sdk -xzf -
+     curl -L https://golang.org/dl/go1.20.linux-amd64.tar.gz | tar -C /home/build/sdk -xzf -
  - test_linux_amd64: |
      cd aranet4
      GOARCH=amd64 go build -v ./...
