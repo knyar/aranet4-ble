@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"time"
 
@@ -317,7 +316,7 @@ func (dev *Device) readN(dst []Data, id byte) error {
 
 	select {
 	case <-ctx.Done():
-		err = errors.Join(
+		err = errorsJoin(
 			ctx.Err(),
 			c.EnableNotifications(nil),
 		)
@@ -329,7 +328,7 @@ func (dev *Device) readN(dst []Data, id byte) error {
 		}
 		return nil
 	case err = <-errc:
-		err = errors.Join(
+		err = errorsJoin(
 			err,
 			c.EnableNotifications(nil),
 		)

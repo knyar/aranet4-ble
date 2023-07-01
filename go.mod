@@ -1,6 +1,6 @@
 module sbinet.org/x/aranet4
 
-go 1.20
+go 1.19
 
 require (
 	go-hep.org/x/hep v0.33.0
