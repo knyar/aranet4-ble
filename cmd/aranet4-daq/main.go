@@ -65,6 +65,7 @@ func newServer(ep, id string) (*server, error) {
 		return nil, fmt.Errorf("could not create aranet4 device: %w", err)
 	}
 	defer dev.Close()
+	log.Printf("creating initial aranet4 device... [done]")
 
 	freq, err := dev.Interval()
 	if err != nil {
