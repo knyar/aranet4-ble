@@ -21,7 +21,7 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/gonuts/binary v0.2.0 // indirect
-	github.com/muka/go-bluetooth v0.0.0-20221213043340-85dc80edc4e1 // indirect
+	github.com/muka/go-bluetooth v0.0.0-20221213043735-5c782bb62e81 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/saltosystems/winrt-go v0.0.0-20230613063811-c792451fa808 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
