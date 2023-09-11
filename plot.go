@@ -10,11 +10,15 @@ import (
 	"image/color"
 	"math"
 
+	"git.sr.ht/~sbinet/epok"
 	"go-hep.org/x/hep/hplot"
-	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/vg"
 	"gonum.org/v1/plot/vg/draw"
 	"gonum.org/v1/plot/vg/vgimg"
+)
+
+var (
+	tcnv epok.UTCUnixTimeConverter
 )
 
 func (srv *manager) plot(data []Data) error {
@@ -22,7 +26,7 @@ func (srv *manager) plot(data []Data) error {
 
 	xs := make([]float64, 0, len(data))
 	for _, v := range data {
-		xs = append(xs, float64(v.Time.Unix()))
+		xs = append(xs, tcnv.FromTime(v.Time))
 	}
 
 	err = srv.plotCO2(xs, data)
@@ -104,7 +108,10 @@ func (srv *manager) genPlot(buf *bytes.Buffer, xs, ys []float64, label string, c
 	plt := hplot.New()
 	plt.Title.Text = "Device: " + srv.id
 	plt.Y.Label.Text = label
-	plt.X.Tick.Marker = plot.TimeTicks{Format: "2006-01-02\n15:04"}
+	plt.X.Tick.Marker = epok.Ticks{
+		Converter: tcnv,
+		Format:    "2006-01-02\n15:04",
+	}
 
 	sca, err := hplot.NewScatter(hplot.ZipXY(xs, ys))
 	if err != nil {

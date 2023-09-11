@@ -3,10 +3,11 @@ module sbinet.org/x/aranet4
 go 1.19
 
 require (
+	git.sr.ht/~sbinet/epok v0.2.0
 	github.com/muka/go-bluetooth v0.0.0-20221213043735-5c782bb62e81
-	go-hep.org/x/hep v0.33.0
+	go-hep.org/x/hep v0.34.0
 	go.etcd.io/bbolt v1.3.7
-	gonum.org/v1/plot v0.13.0
+	gonum.org/v1/plot v0.14.0
 )
 
 require (
@@ -22,11 +23,12 @@ require (
 	github.com/gonuts/binary v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df // indirect
-	golang.org/x/image v0.8.0 // indirect
+	github.com/teambition/rrule-go v1.8.2 // indirect
+	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
+	golang.org/x/image v0.12.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/sys v0.9.0 // indirect
-	golang.org/x/text v0.10.0 // indirect
-	gonum.org/v1/gonum v0.13.0 // indirect
+	golang.org/x/sys v0.12.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
+	gonum.org/v1/gonum v0.14.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
