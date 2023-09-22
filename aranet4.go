@@ -17,6 +17,7 @@ const (
 
 var (
 	uuidDeviceService          = "f0cd1400-95da-4f4b-9ac8-aa55d312af0c"
+	uuidDeviceServiceV1_2_0    = "0000fce0-0000-1000-8000-00805f9b34fb" // for firmware v1.2.0 and later
 	uuidWriteCmd               = "f0cd1402-95da-4f4b-9ac8-aa55d312af0c"
 	uuidReadSample             = "f0cd1503-95da-4f4b-9ac8-aa55d312af0c"
 	uuidReadAll                = "f0cd3001-95da-4f4b-9ac8-aa55d312af0c"
