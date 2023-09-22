@@ -27,13 +27,14 @@ var (
 
 	uuidGenericService = "00001800-0000-1000-8000-00805f9b34fb"
 
-	uuidCommonService              = "0000180a-0000-1000-8000-00805f9b34fb"
-	uuidCommonReadManufacturerName = "00002a29-0000-1000-8000-00805f9b34fb"
-	uuidCommonReadModelNumber      = "00002a24-0000-1000-8000-00805f9b34fb"
-	uuidCommonReadSerialNumber     = "00002a25-0000-1000-8000-00805f9b34fb"
-	uuidCommonReadHWRevision       = "00002a27-0000-1000-8000-00805f9b34fb"
-	uuidCommonReadSWRevision       = "00002a28-0000-1000-8000-00805f9b34fb"
-	uuidCommonReadBattery          = "00002a19-0000-1000-8000-00805f9b34fb"
+	uuidCommonService               = "0000180a-0000-1000-8000-00805f9b34fb"
+	uuidCommonReadManufacturerName  = "00002a29-0000-1000-8000-00805f9b34fb"
+	uuidCommonReadModelNumber       = "00002a24-0000-1000-8000-00805f9b34fb"
+	uuidCommonReadSerialNumber      = "00002a25-0000-1000-8000-00805f9b34fb"
+	uuidCommonReadSWRevision        = "00002a26-0000-1000-8000-00805f9b34fb"
+	uuidCommonReadHWRevision        = "00002a27-0000-1000-8000-00805f9b34fb"
+	uuidCommonReadFactorySWRevision = "00002a28-0000-1000-8000-00805f9b34fb"
+	uuidCommonReadBattery           = "00002a19-0000-1000-8000-00805f9b34fb"
 )
 
 const (
