@@ -17,6 +17,23 @@ import (
 	"gonum.org/v1/plot/vg/vgimg"
 )
 
+// Message holds informations about a device.
+type Message struct {
+	Root     string   `json:"root"`
+	Devices  []string `json:"devices"`
+	DeviceID string   `json:"device_id"`
+	Status   string   `json:"status"`
+	Refresh  int      `json:"refresh"`
+	From     string   `json:"from"`
+	To       string   `json:"to"`
+	Plots    struct {
+		H   string `json:"h"`
+		P   string `json:"p"`
+		T   string `json:"t"`
+		CO2 string `json:"co2"`
+	} `json:"plots"`
+}
+
 var (
 	tcnv epok.UTCUnixTimeConverter
 )

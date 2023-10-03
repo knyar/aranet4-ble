@@ -5,9 +5,12 @@
 package aranet4 // import "sbinet.org/x/aranet4"
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -51,6 +54,7 @@ func NewServer(root, dbfile string) (*Server, error) {
 	srv.mux.HandleFunc(root+"/plot-h", srv.handlePlotH)
 	srv.mux.HandleFunc(root+"/plot-p", srv.handlePlotP)
 	srv.mux.HandleFunc(root+"/plot-t", srv.handlePlotT)
+	srv.mux.HandleFunc(root+"/api", srv.handleAPI)
 
 	err = srv.init()
 	if err != nil {
@@ -261,6 +265,103 @@ func (srv *Server) handlePlotT(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("content-type", "image/png")
 	w.Write(mgr.plots.T.Bytes())
+}
+
+func (srv *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		fmt.Fprintf(w, "could not parse form: %+v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	mgr, err := srv.mgrFor(r)
+	if err != nil {
+		err = fmt.Errorf("could not find device manager: %w", err)
+		fmt.Fprintf(w, "%+v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	cnv := func(name string) int64 {
+		v := r.Form.Get(name)
+		if v == "" {
+			return -1
+		}
+		vv, err := time.Parse("2006-01-02", v)
+		if err != nil {
+			return -1
+		}
+		return vv.UTC().Unix()
+	}
+
+	var (
+		beg = cnv("from")
+		end = cnv("to")
+	)
+
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	data, err := mgr.rows(srv.db, beg, end)
+	if err != nil {
+		err = fmt.Errorf("could not read rows for device=%q from db: %w", mgr.id, err)
+		fmt.Fprintf(w, "%+v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = mgr.plot(data)
+	if err != nil {
+		err = fmt.Errorf("could not create plots for device=%q: %w", mgr.id, err)
+		fmt.Fprintf(w, "%+v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	refresh := int(mgr.last.Interval.Seconds())
+	if refresh == 0 {
+		refresh = 10
+	}
+
+	msg := Message{
+		Root:     srv.root,
+		Devices:  srv.ids,
+		DeviceID: mgr.id,
+		Status:   mgr.last.String(),
+		Refresh:  refresh,
+	}
+
+	if beg > 0 {
+		msg.From = time.Unix(beg, 0).UTC().Format("2006-01-02")
+	}
+	if end > 0 {
+		msg.To = time.Unix(end, 0).UTC().Format("2006-01-02")
+	}
+	msg.Plots.CO2 = base64.StdEncoding.EncodeToString(mgr.plots.CO2.Bytes())
+	msg.Plots.H = base64.StdEncoding.EncodeToString(mgr.plots.H.Bytes())
+	msg.Plots.P = base64.StdEncoding.EncodeToString(mgr.plots.P.Bytes())
+	msg.Plots.T = base64.StdEncoding.EncodeToString(mgr.plots.T.Bytes())
+
+	buf := new(bytes.Buffer)
+	err = json.NewEncoder(buf).Encode(msg)
+	if err != nil {
+		err = fmt.Errorf("could not encode message for device=%q: %w", mgr.id, err)
+		fmt.Fprintf(w, "%+v", err)
+		log.Printf("error: %+v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, err = io.Copy(w, buf)
+	if err != nil {
+		err = fmt.Errorf("could not write message for device=%q: %w", mgr.id, err)
+		fmt.Fprintf(w, "%+v", err)
+		log.Printf("error: %+v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func (srv *Server) mgrFor(r *http.Request) (*manager, error) {
