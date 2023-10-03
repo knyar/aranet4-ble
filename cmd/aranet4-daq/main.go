@@ -67,10 +67,12 @@ func newServer(ep, id string) (*server, error) {
 	defer dev.Close()
 	log.Printf("creating initial aranet4 device... [done]")
 
+	log.Printf("retrieving aranet4 device refresh interval...")
 	freq, err := dev.Interval()
 	if err != nil {
 		return nil, fmt.Errorf("could not retrieve data refresh interval: %w", err)
 	}
+	log.Printf("retrieving aranet4 device refresh interval... [done]")
 
 	srv := &server{
 		ep:   ep,
@@ -115,11 +117,13 @@ func (srv *server) run() error {
 }
 
 func (srv *server) readn() ([]aranet4.Data, error) {
+	log.Printf("connecting to aranet4 device...")
 	dev, err := aranet4.New(context.Background(), srv.id)
 	if err != nil {
 		return nil, fmt.Errorf("could not create aranet4 device: %w", err)
 	}
 	defer dev.Close()
+	log.Printf("connecting to aranet4 device... [done]")
 
 	return dev.ReadAll()
 }
