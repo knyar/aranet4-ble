@@ -10,12 +10,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	"sbinet.org/x/aranet4"
 )
 
@@ -60,7 +62,9 @@ type server struct {
 
 func newServer(ep, id string) (*server, error) {
 	log.Printf("creating initial aranet4 device...")
-	dev, err := aranet4.New(context.Background(), id)
+	dev, err := run(5*time.Second, func() (*aranet4.Device, error) {
+		return aranet4.New(context.Background(), id)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("could not create aranet4 device: %w", err)
 	}
@@ -68,11 +72,11 @@ func newServer(ep, id string) (*server, error) {
 	log.Printf("creating initial aranet4 device... [done]")
 
 	log.Printf("retrieving aranet4 device refresh interval...")
-	freq, err := dev.Interval()
+	freq, err := run(5*time.Second, dev.Interval)
 	if err != nil {
 		return nil, fmt.Errorf("could not retrieve data refresh interval: %w", err)
 	}
-	log.Printf("retrieving aranet4 device refresh interval... [done]")
+	log.Printf("retrieving aranet4 device refresh interval... [done] (freq=%v)", freq)
 
 	srv := &server{
 		ep:   ep,
@@ -104,6 +108,10 @@ func (srv *server) run() error {
 	for range tck.C {
 		v, err := srv.read()
 		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				log.Printf("could not retrieve data: %+v", err)
+				continue
+			}
 			return fmt.Errorf("could not retrieve data: %w", err)
 		}
 
@@ -117,25 +125,29 @@ func (srv *server) run() error {
 }
 
 func (srv *server) readn() ([]aranet4.Data, error) {
-	log.Printf("connecting to aranet4 device...")
-	dev, err := aranet4.New(context.Background(), srv.id)
-	if err != nil {
-		return nil, fmt.Errorf("could not create aranet4 device: %w", err)
-	}
-	defer dev.Close()
-	log.Printf("connecting to aranet4 device... [done]")
+	return run(10*time.Second, func() ([]aranet4.Data, error) {
+		log.Printf("connecting to aranet4 device...")
+		dev, err := aranet4.New(context.Background(), srv.id)
+		if err != nil {
+			return nil, fmt.Errorf("could not create aranet4 device: %w", err)
+		}
+		defer dev.Close()
+		log.Printf("connecting to aranet4 device... [done]")
 
-	return dev.ReadAll()
+		return dev.ReadAll()
+	})
 }
 
 func (srv *server) read() (aranet4.Data, error) {
-	dev, err := aranet4.New(context.Background(), srv.id)
-	if err != nil {
-		return aranet4.Data{}, fmt.Errorf("could not create aranet4 device: %w", err)
-	}
-	defer dev.Close()
+	return run(5*time.Second, func() (aranet4.Data, error) {
+		dev, err := aranet4.New(context.Background(), srv.id)
+		if err != nil {
+			return aranet4.Data{}, fmt.Errorf("could not create aranet4 device: %w", err)
+		}
+		defer dev.Close()
 
-	return dev.Read()
+		return dev.Read()
+	})
 }
 
 func (srv *server) upload(vs ...aranet4.Data) error {
@@ -176,4 +188,32 @@ func (srv *server) upload(vs ...aranet4.Data) error {
 
 	log.Printf("uploading %d data points... [done]", len(vs))
 	return nil
+}
+
+func run[T any](timeout time.Duration, f func() (T, error)) (T, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	var (
+		v      T
+		grp, _ = errgroup.WithContext(ctx)
+	)
+
+	grp.Go(func() error {
+		var err error
+		v, err = f()
+		return err
+	})
+
+	ch := make(chan error, 1)
+	go func() {
+		ch <- grp.Wait()
+	}()
+
+	select {
+	case err := <-ch:
+		return v, err
+	case <-ctx.Done():
+		return v, ctx.Err()
+	}
 }
