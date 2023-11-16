@@ -44,8 +44,18 @@ func main() {
 }
 
 func xmain(endpoint, devID string) error {
-	srv, err := newServer(endpoint, devID)
+	n := 360 // ~1 hour
+retry:
+	srv, err := run(10*time.Second, func() (*server, error) {
+		return newServer(endpoint, devID)
+	})
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) && n > 0 {
+			n--
+			log.Printf("could not create DAQ server: %+v", err)
+			time.Sleep(10 * time.Second)
+			goto retry
+		}
 		return fmt.Errorf("could not create DAQ server: %w", err)
 	}
 
@@ -105,6 +115,7 @@ func (srv *server) run() error {
 
 	tck := time.NewTicker(srv.freq)
 	defer tck.Stop()
+
 	for range tck.C {
 		v, err := srv.read()
 		if err != nil {
