@@ -53,6 +53,11 @@ func New(ctx context.Context, addr string) (*Device, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not find device %q: %w", addr, err)
 	}
+
+	if dev == nil {
+		return nil, fmt.Errorf("could not find device %q", addr)
+	}
+
 	err = dev.Connect()
 	if err != nil {
 		dev.Close()
