@@ -52,3 +52,11 @@ id;timestamp (UTC);temperature (°C);humidity (%);pressure (hPa);CO2 (ppm)
 ---
 
 This [Go](https://golang.org)-based driver is heavily inspired from [Anrijs/Aranet4-Python](https://github.com/Anrijs/Aranet4-Python). Thanks a bunch.
+
+## Development & mailing list
+
+Development of `aranet4` happens on [SourceHut](https://sr.ht).
+
+Discussions can take place over there:
+
+- [~sbinet/dev@lists.sr.ht](mailto:~sbinet/dev@lists.sr.ht)
