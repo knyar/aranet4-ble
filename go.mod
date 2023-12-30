@@ -3,7 +3,7 @@ module sbinet.org/x/aranet4
 go 1.21
 
 require (
-	git.sr.ht/~sbinet/epok v0.4.0
+	git.sr.ht/~sbinet/epok v0.5.0
 	github.com/muka/go-bluetooth v0.0.0-20221213043735-5c782bb62e81
 	go-hep.org/x/hep v0.34.1
 	go.etcd.io/bbolt v1.3.8
