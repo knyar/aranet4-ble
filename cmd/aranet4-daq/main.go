@@ -26,8 +26,9 @@ func main() {
 	log.SetFlags(0)
 
 	var (
-		ep    = flag.String("endpoint", "", "endpoint where to POST data")
-		devID = flag.String("device", "F5:6C:BE:D5:61:47", "MAC address of Aranet4")
+		ep     = flag.String("endpoint", "", "endpoint where to POST data")
+		devID  = flag.String("device", "F5:6C:BE:D5:61:47", "MAC address of Aranet4")
+		daemon = flag.Bool("daemon", false, "enable daemon mode")
 	)
 
 	flag.Parse()
@@ -37,13 +38,13 @@ func main() {
 		log.Fatalf("missing endpoint")
 	}
 
-	err := xmain(*ep, *devID)
+	err := xmain(*ep, *devID, *daemon)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func xmain(endpoint, devID string) error {
+func xmain(endpoint, devID string, daemon bool) error {
 	n := 360 // ~1 hour
 retry:
 	srv, err := run(10*time.Second, func() (*server, error) {
@@ -59,7 +60,7 @@ retry:
 		return fmt.Errorf("could not create DAQ server: %w", err)
 	}
 
-	return srv.run()
+	return srv.run(daemon)
 }
 
 type server struct {
@@ -100,7 +101,7 @@ func newServer(ep, id string) (*server, error) {
 	return srv, nil
 }
 
-func (srv *server) run() error {
+func (srv *server) run(daemon bool) error {
 	log.Printf("retrieving historical data...")
 	vs, err := srv.readn()
 	if err != nil {
@@ -111,6 +112,10 @@ func (srv *server) run() error {
 	err = srv.upload(vs...)
 	if err != nil {
 		return fmt.Errorf("could not upload historical data: %w", err)
+	}
+
+	if !daemon {
+		return nil
 	}
 
 	tck := time.NewTicker(srv.freq)
