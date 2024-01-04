@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"time"
 
 	"github.com/muka/go-bluetooth/bluez/profile/adapter"
@@ -299,7 +300,10 @@ func (dev *Device) readN(dst []Data, id byte) error {
 		for i := idx; i < max; i++ {
 			err := dec.readField(id, &dst[i])
 			if err != nil {
-				return fmt.Errorf("could not read param=%d, idx=%d: %w", id, i, err)
+				if !errors.Is(err, ErrNoData) {
+					return fmt.Errorf("could not read param=%d, idx=%d: %w", id, i, err)
+				}
+				log.Printf("could not read param=%d, idx=%d: %+v", id, i, err)
 			}
 		}
 		return nil
