@@ -73,7 +73,8 @@ func (st Quality) String() string {
 	}
 }
 
-func qualityFrom(co2 int) Quality {
+// QualityFrom creates a quality value from a CO2 value.
+func QualityFrom(co2 int) Quality {
 	switch {
 	case co2 < 1000:
 		return 1

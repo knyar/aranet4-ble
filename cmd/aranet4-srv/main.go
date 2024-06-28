@@ -9,7 +9,7 @@ import (
 	"log"
 	"net/http"
 
-	"sbinet.org/x/aranet4"
+	"sbinet.org/x/aranet4/arasrv"
 )
 
 func main() {
@@ -27,7 +27,7 @@ func main() {
 }
 
 func xmain(addr, db string) {
-	srv, err := aranet4.NewServer("/", db)
+	srv, err := arasrv.NewServer("/", db)
 	if err != nil {
 		log.Panicf("could not create aranet4 server: %+v", err)
 	}

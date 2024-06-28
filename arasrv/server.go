@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package aranet4 // import "sbinet.org/x/aranet4"
+package arasrv // import "sbinet.org/x/aranet4/arasrv"
 
 import (
 	"bytes"
@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"go.etcd.io/bbolt"
+	"sbinet.org/x/aranet4"
 )
 
 type Server struct {
@@ -172,8 +173,8 @@ func (srv *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 
 	var (
 		req struct {
-			ID   string `json:"device_id"`
-			Data []Data `json:"data"`
+			ID   string         `json:"device_id"`
+			Data []aranet4.Data `json:"data"`
 		}
 		err = json.NewDecoder(r.Body).Decode(&req)
 	)

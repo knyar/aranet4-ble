@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package aranet4 // import "sbinet.org/x/aranet4"
+package arasrv // import "sbinet.org/x/aranet4/arasrv"
 
 import (
 	"reflect"

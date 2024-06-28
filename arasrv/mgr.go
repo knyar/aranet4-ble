@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package aranet4 // import "sbinet.org/x/aranet4"
+package arasrv // import "sbinet.org/x/aranet4/arasrv"
 
 import (
 	"bytes"
@@ -10,12 +10,13 @@ import (
 	"sort"
 
 	"go.etcd.io/bbolt"
+	"sbinet.org/x/aranet4"
 )
 
 type manager struct {
 	id string
 
-	last  Data
+	last  aranet4.Data
 	plots struct {
 		CO2     bytes.Buffer
 		T, H, P bytes.Buffer
@@ -26,8 +27,8 @@ func newManager(id string) *manager {
 	return &manager{id: id}
 }
 
-func (mgr *manager) rows(db *bbolt.DB, beg, end int64) ([]Data, error) {
-	var rows []Data
+func (mgr *manager) rows(db *bbolt.DB, beg, end int64) ([]aranet4.Data, error) {
+	var rows []aranet4.Data
 	err := db.View(func(tx *bbolt.Tx) error {
 		root := tx.Bucket(bucketRoot)
 		if root == nil {
@@ -41,7 +42,7 @@ func (mgr *manager) rows(db *bbolt.DB, beg, end int64) ([]Data, error) {
 
 		return bkt.ForEach(func(k, v []byte) error {
 			var (
-				row Data
+				row aranet4.Data
 				err = unmarshalBinary(&row, v)
 			)
 			if err != nil {

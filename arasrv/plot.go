@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package aranet4 // import "sbinet.org/x/aranet4"
+package arasrv // import "sbinet.org/x/aranet4/arasrv"
 
 import (
 	"bytes"
@@ -15,6 +15,7 @@ import (
 	"gonum.org/v1/plot/vg"
 	"gonum.org/v1/plot/vg/draw"
 	"gonum.org/v1/plot/vg/vgimg"
+	"sbinet.org/x/aranet4"
 )
 
 // Message holds informations about a device.
@@ -38,7 +39,7 @@ var (
 	tcnv epok.UTCUnixTimeConverter
 )
 
-func (srv *manager) plot(data []Data) error {
+func (srv *manager) plot(data []aranet4.Data) error {
 	var err error
 
 	xs := make([]float64, 0, len(data))
@@ -66,7 +67,7 @@ func (srv *manager) plot(data []Data) error {
 	return nil
 }
 
-func (srv *manager) plotCO2(xs []float64, data []Data) error {
+func (srv *manager) plotCO2(xs []float64, data []aranet4.Data) error {
 	var (
 		ys = make([]float64, 0, len(data))
 	)
@@ -79,7 +80,7 @@ func (srv *manager) plotCO2(xs []float64, data []Data) error {
 	return srv.genPlot(&srv.plots.CO2, xs, ys, "CO2 [ppm]", c)
 }
 
-func (srv *manager) plotT(xs []float64, data []Data) error {
+func (srv *manager) plotT(xs []float64, data []aranet4.Data) error {
 	var (
 		ys = make([]float64, 0, len(data))
 	)
@@ -92,7 +93,7 @@ func (srv *manager) plotT(xs []float64, data []Data) error {
 	return srv.genPlot(&srv.plots.T, xs, ys, "T [°C]", c)
 }
 
-func (srv *manager) plotH(xs []float64, data []Data) error {
+func (srv *manager) plotH(xs []float64, data []aranet4.Data) error {
 	var (
 		ys = make([]float64, 0, len(data))
 	)
@@ -105,7 +106,7 @@ func (srv *manager) plotH(xs []float64, data []Data) error {
 	return srv.genPlot(&srv.plots.H, xs, ys, "Humidity [%]", c)
 }
 
-func (srv *manager) plotP(xs []float64, data []Data) error {
+func (srv *manager) plotP(xs []float64, data []aranet4.Data) error {
 	var (
 		ys = make([]float64, 0, len(data))
 	)
