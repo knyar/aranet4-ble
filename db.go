@@ -5,14 +5,27 @@
 package aranet4 // import "sbinet.org/x/aranet4"
 
 import (
+	"io"
+	"iter"
 	"time"
 )
 
+// DB is the interface to manage aranet4 data.
 type DB interface {
-	Init() error
-	AddData(vs []Data) error
-	Data(beg, end time.Time) ([]Data, error)
+	io.Closer
 
-	AddDevice() error
+	// PutData puts the provided data for the device id into the underlying store
+	PutData(id string, vs []Data) error
+
+	// Data iterates over data for the device id and the requested time interval [beg, end)
+	Data(id string, beg, end time.Time) iter.Seq2[Data, error]
+
+	// Last returns the last data point for the provided device id
+	Last(id string) (Data, error)
+
+	// AddDevice declares a new device id
+	AddDevice(id string) error
+
+	// Devices returns the device ids list
 	Devices() ([]string, error)
 }

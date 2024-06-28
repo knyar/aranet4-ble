@@ -17,15 +17,15 @@ import (
 	"sync"
 	"time"
 
-	"go.etcd.io/bbolt"
 	"sbinet.org/x/aranet4"
+	"sbinet.org/x/aranet4/internal/arabolt"
 )
 
 type Server struct {
 	mux *http.ServeMux
 
 	mu   sync.RWMutex
-	db   *bbolt.DB
+	db   aranet4.DB
 	ids  []string
 	mgrs map[string]*manager
 
@@ -34,7 +34,7 @@ type Server struct {
 }
 
 func NewServer(root, dbfile string) (*Server, error) {
-	db, err := bbolt.Open(dbfile, 0644, &bbolt.Options{Timeout: 1 * time.Second})
+	db, err := arabolt.Open(dbfile)
 	if err != nil {
 		return nil, fmt.Errorf("could not open aranet4 db: %w", err)
 	}
@@ -90,16 +90,16 @@ func (srv *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cnv := func(name string) int64 {
+	cnv := func(name string) time.Time {
 		v := r.Form.Get(name)
 		if v == "" {
-			return -1
+			return time.Unix(-1, 0).UTC()
 		}
 		vv, err := time.Parse("2006-01-02", v)
 		if err != nil {
-			return -1
+			return time.Unix(-1, 0).UTC()
 		}
-		return vv.UTC().Unix()
+		return vv.UTC()
 	}
 
 	var (
@@ -146,11 +146,11 @@ func (srv *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 		Refresh:  refresh,
 	}
 
-	if beg > 0 {
-		ctx.From = time.Unix(beg, 0).UTC().Format("2006-01-02")
+	if beg.Unix() > 0 {
+		ctx.From = beg.Format("2006-01-02")
 	}
-	if end > 0 {
-		ctx.To = time.Unix(end, 0).UTC().Format("2006-01-02")
+	if end.Unix() > 0 {
+		ctx.To = end.Format("2006-01-02")
 	}
 
 	err = srv.tmpl.Execute(w, ctx)
@@ -284,16 +284,16 @@ func (srv *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cnv := func(name string) int64 {
+	cnv := func(name string) time.Time {
 		v := r.Form.Get(name)
 		if v == "" {
-			return -1
+			return time.Unix(-1, 0).UTC()
 		}
 		vv, err := time.Parse("2006-01-02", v)
 		if err != nil {
-			return -1
+			return time.Unix(-1, 0).UTC()
 		}
-		return vv.UTC().Unix()
+		return vv.UTC()
 	}
 
 	var (
@@ -333,11 +333,11 @@ func (srv *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 		Refresh:  refresh,
 	}
 
-	if beg > 0 {
-		msg.From = time.Unix(beg, 0).UTC().Format("2006-01-02")
+	if beg.Unix() > 0 {
+		msg.From = beg.Format("2006-01-02")
 	}
-	if end > 0 {
-		msg.To = time.Unix(end, 0).UTC().Format("2006-01-02")
+	if end.Unix() > 0 {
+		msg.To = end.Format("2006-01-02")
 	}
 	msg.Plots.CO2 = base64.StdEncoding.EncodeToString(mgr.plots.CO2.Bytes())
 	msg.Plots.H = base64.StdEncoding.EncodeToString(mgr.plots.H.Bytes())

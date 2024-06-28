@@ -7,9 +7,8 @@ package arasrv // import "sbinet.org/x/aranet4/arasrv"
 import (
 	"bytes"
 	"fmt"
-	"sort"
+	"time"
 
-	"go.etcd.io/bbolt"
 	"sbinet.org/x/aranet4"
 )
 
@@ -27,45 +26,12 @@ func newManager(id string) *manager {
 	return &manager{id: id}
 }
 
-func (mgr *manager) rows(db *bbolt.DB, beg, end int64) ([]aranet4.Data, error) {
-	var rows []aranet4.Data
-	err := db.View(func(tx *bbolt.Tx) error {
-		root := tx.Bucket(bucketRoot)
-		if root == nil {
-			return fmt.Errorf("could not find %q bucket", bucketRoot)
+func (mgr *manager) rows(db aranet4.DB, beg, end time.Time) (rows []aranet4.Data, err error) {
+	for row, err := range db.Data(mgr.id, beg, end) {
+		if err != nil {
+			return nil, fmt.Errorf("could not read rows: %w", err)
 		}
-
-		bkt := root.Bucket([]byte(mgr.id))
-		if bkt == nil {
-			return fmt.Errorf("could not find data bucket for device=%q", mgr.id)
-		}
-
-		return bkt.ForEach(func(k, v []byte) error {
-			var (
-				row aranet4.Data
-				err = unmarshalBinary(&row, v)
-			)
-			if err != nil {
-				return err
-			}
-			id := row.Time.UTC().Unix()
-			if beg > id {
-				return nil
-			}
-			if end > 0 && id > end {
-				return nil
-			}
-			rows = append(rows, row)
-			return nil
-		})
-	})
-	if err != nil {
-		return nil, fmt.Errorf("could not read rows: %w", err)
+		rows = append(rows, row)
 	}
-
-	sort.Slice(rows, func(i, j int) bool {
-		return ltApprox(rows[i], rows[j])
-	})
-
 	return rows, nil
 }

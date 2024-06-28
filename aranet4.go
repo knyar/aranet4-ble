@@ -5,8 +5,10 @@
 package aranet4 // import "sbinet.org/x/aranet4"
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 )
@@ -96,6 +98,15 @@ type Data struct {
 	Time     time.Time
 }
 
+// keep dataSize synchronized with Data.
+const dataSize = 17
+
+// BinarySize returns the number of bytes needed to hold the binary data
+// for a single Data element.
+func (Data) BinarySize() int {
+	return dataSize
+}
+
 func (data Data) String() string {
 	var o strings.Builder
 	fmt.Fprintf(&o, "CO2:         %d ppm\n", data.CO2)
@@ -107,4 +118,33 @@ func (data Data) String() string {
 	fmt.Fprintf(&o, "interval:    %v\n", data.Interval)
 	fmt.Fprintf(&o, "time-stamp:  %v\n", data.Time.UTC().Format(timeFmt))
 	return o.String()
+}
+
+func (data *Data) Unmarshal(p []byte) error {
+	if len(p) != dataSize {
+		return io.ErrShortBuffer
+	}
+	data.Time = time.Unix(int64(binary.LittleEndian.Uint64(p)), 0).UTC()
+	data.H = float64(p[8])
+	data.P = float64(binary.LittleEndian.Uint16(p[9:])) / 10
+	data.T = float64(binary.LittleEndian.Uint16(p[11:])) / 100
+	data.CO2 = int(binary.LittleEndian.Uint16(p[13:]))
+	data.Battery = int(p[15])
+	data.Quality = QualityFrom(data.CO2)
+	data.Interval = time.Duration(p[16]) * time.Minute
+	return nil
+}
+
+func (data Data) Marshal(p []byte) error {
+	if len(p) != dataSize {
+		return io.ErrShortBuffer
+	}
+	binary.LittleEndian.PutUint64(p[0:], uint64(data.Time.UTC().Unix()))
+	p[8] = uint8(data.H)
+	binary.LittleEndian.PutUint16(p[9:], uint16(data.P*10))
+	binary.LittleEndian.PutUint16(p[11:], uint16(data.T*100))
+	binary.LittleEndian.PutUint16(p[13:], uint16(data.CO2))
+	p[15] = uint8(data.Battery)
+	p[16] = uint8(data.Interval.Minutes())
+	return nil
 }
