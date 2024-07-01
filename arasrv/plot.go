@@ -12,6 +12,7 @@ import (
 
 	"git.sr.ht/~sbinet/epok"
 	"go-hep.org/x/hep/hplot"
+	"golang.org/x/sync/errgroup"
 	"gonum.org/v1/plot/vg"
 	"gonum.org/v1/plot/vg/draw"
 	"gonum.org/v1/plot/vg/vgimg"
@@ -47,21 +48,42 @@ func (srv *manager) plot(data []aranet4.Data) error {
 		xs = append(xs, tcnv.FromTime(v.Time))
 	}
 
-	err = srv.plotCO2(xs, data)
+	var grp errgroup.Group
+	grp.Go(func() error {
+		err := srv.plotCO2(xs, data)
+		if err != nil {
+			return fmt.Errorf("could not create CO2 plot: %w", err)
+		}
+		return nil
+	})
+
+	grp.Go(func() error {
+		err := srv.plotT(xs, data)
+		if err != nil {
+			return fmt.Errorf("could not create T plot: %w", err)
+		}
+		return nil
+	})
+
+	grp.Go(func() error {
+		err := srv.plotH(xs, data)
+		if err != nil {
+			return fmt.Errorf("could not create H plot: %w", err)
+		}
+		return nil
+	})
+
+	grp.Go(func() error {
+		err := srv.plotP(xs, data)
+		if err != nil {
+			return fmt.Errorf("could not create P plot: %w", err)
+		}
+		return nil
+	})
+
+	err = grp.Wait()
 	if err != nil {
-		return fmt.Errorf("could not create CO2 plot: %w", err)
-	}
-	err = srv.plotT(xs, data)
-	if err != nil {
-		return fmt.Errorf("could not create T plot: %w", err)
-	}
-	err = srv.plotH(xs, data)
-	if err != nil {
-		return fmt.Errorf("could not create H plot: %w", err)
-	}
-	err = srv.plotP(xs, data)
-	if err != nil {
-		return fmt.Errorf("could not create P plot: %w", err)
+		return fmt.Errorf("could not create plots: %w", err)
 	}
 
 	return nil
