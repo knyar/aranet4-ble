@@ -13,12 +13,14 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"sbinet.org/x/aranet4"
 	"sbinet.org/x/aranet4/internal/arabolt"
+	"sbinet.org/x/aranet4/internal/arasqlite"
 )
 
 type Server struct {
@@ -33,8 +35,31 @@ type Server struct {
 	tmpl *template.Template
 }
 
+func opendb(fname string) (aranet4.DB, error) {
+	f, err := os.Open(fname)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	buf := make([]byte, 16)
+	_, err = io.ReadFull(f, buf)
+	if err != nil {
+		return nil, err
+	}
+	_ = f.Close()
+
+	magic := []byte("SQLite format 3\x00")
+	switch {
+	case bytes.Equal(buf, magic):
+		return arasqlite.Open(fname)
+	default:
+		return arabolt.Open(fname)
+	}
+}
+
 func NewServer(root, dbfile string) (*Server, error) {
-	db, err := arabolt.Open(dbfile)
+	db, err := opendb(dbfile)
 	if err != nil {
 		return nil, fmt.Errorf("could not open aranet4 db: %w", err)
 	}
