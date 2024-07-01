@@ -232,9 +232,7 @@ func (db *DB) Data(id string, beg, end time.Time) iter.Seq2[aranet4.Data, error]
 			return
 		}
 
-		sort.Slice(rows, func(i, j int) bool {
-			return ltApprox(rows[i], rows[j])
-		})
+		sort.Sort(aranet4.Samples(rows))
 
 		for _, row := range rows {
 			if !yield(row, nil) {
@@ -260,6 +258,10 @@ func (db *DB) Last(id string) (aranet4.Data, error) {
 
 // AddDevice declares a new device id
 func (db *DB) AddDevice(id string) error {
+	if _, dup := db.last[id]; dup {
+		return aranet4.ErrDupDevice
+	}
+
 	err := db.db.Update(func(tx *bbolt.Tx) error {
 		root := tx.Bucket(bucketRoot)
 		if root == nil {

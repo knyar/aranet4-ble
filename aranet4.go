@@ -52,6 +52,10 @@ var (
 	// This may happen during sensor calibration.
 	ErrNoData = errors.New("aranet4: no data")
 
+	// ErrDupDevice is returned by DB.AddDevice when a device with
+	// the provided id is already stored in the database.
+	ErrDupDevice = errors.New("aranet4: duplicate device")
+
 	// errNoSvc indicates to service could be found for a given device.
 	errNoSvc = errors.New("aranet4: no service attached to device")
 )
@@ -147,4 +151,35 @@ func (data Data) Marshal(p []byte) error {
 	p[15] = uint8(data.Battery)
 	p[16] = uint8(data.Interval.Minutes())
 	return nil
+}
+
+func (data Data) Before(o Data) bool {
+	return ltApprox(data, o)
+}
+
+// Samples implements sort.Interface for Data, sorting in increasing timestamps.
+type Samples []Data
+
+func (vs Samples) Len() int           { return len(vs) }
+func (vs Samples) Swap(i, j int)      { vs[i], vs[j] = vs[j], vs[i] }
+func (vs Samples) Less(i, j int) bool { return ltApprox(vs[i], vs[j]) }
+
+const (
+	timeResolution int64 = 5 // seconds
+)
+
+func ltApprox(a, b Data) bool {
+	at := a.Time.UTC().Unix()
+	bt := b.Time.UTC().Unix()
+	if abs(at-bt) < timeResolution {
+		return false
+	}
+	return at < bt
+}
+
+func abs(v int64) int64 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
