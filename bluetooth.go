@@ -5,9 +5,19 @@
 package aranet4
 
 import (
-	"github.com/muka/go-bluetooth/bluez/profile/gatt"
+	"fmt"
+
+	"github.com/rigado/ble"
 )
 
-func (dev *Device) devCharByUUID(id string) (*gatt.GattCharacteristic1, error) {
-	return dev.dev.GetCharByUUID(id)
+func (dev *Device) devCharByUUID(id string) (*ble.Characteristic, error) {
+	uuid, err := ble.Parse(id)
+	if err != nil {
+		return nil, err
+	}
+	char := dev.profile.FindCharacteristic(&ble.Characteristic{UUID: uuid})
+	if char == nil {
+		return nil, fmt.Errorf("characteristic %q not found", id)
+	}
+	return char, nil
 }
