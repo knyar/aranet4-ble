@@ -2,17 +2,18 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package main // import "sbinet.org/x/aranet4/cmd/aranet4-ls"
+package main
 
 import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"log"
-	"os"
+	"time"
 
-	"sbinet.org/x/aranet4"
+	"github.com/knyar/aranet4-ble"
+	"github.com/rigado/ble"
+	"github.com/rigado/ble/linux"
 )
 
 func main() {
@@ -20,14 +21,21 @@ func main() {
 	log.SetFlags(0)
 
 	var (
+		hciSkt  = flag.Int("device", -1, "bluetooth device hci index")
 		addr    = flag.String("addr", "F5:6C:BE:D5:61:47", "MAC address of Aranet4")
 		verbose = flag.Bool("v", false, "enable verbose mode")
-
-		doTimeSeries = flag.Bool("ts", false, "fetch time series")
-		oname        = flag.String("o", "", "path to output file for time series")
 	)
 
 	flag.Parse()
+
+	d, err := linux.NewDevice(
+		ble.OptTransportHCISocket(*hciSkt),
+		ble.OptDialerTimeout(10*time.Second),
+	)
+	if err != nil {
+		log.Fatalf("can't create new device: %v", err)
+	}
+	ble.SetDefaultDevice(d)
 
 	dev, err := aranet4.New(context.Background(), *addr)
 	if err != nil {
@@ -50,42 +58,6 @@ func main() {
 		log.Fatalf("could not run client: %+v", err)
 	}
 	fmt.Printf("%v", data)
-
-	if *doTimeSeries {
-		var (
-			w     io.Writer
-			flush = func() error { return nil }
-		)
-		switch *oname {
-		case "", "-":
-			w = os.Stdout
-		default:
-			f, err := os.Create(*oname)
-			if err != nil {
-				log.Fatalf("could not create output file: %+v", err)
-			}
-			w = f
-			flush = func() error {
-				return f.Close()
-			}
-		}
-
-		vs, err := dev.ReadAll()
-		if err != nil {
-			log.Fatalf("could not read data: %+v", err)
-		}
-		fmt.Fprintf(w, "id;timestamp (UTC);temperature (°C);humidity (%%);pressure (hPa);CO2 (ppm)\n")
-		for i, v := range vs {
-			fmt.Fprintf(w, "%d;%s;%.2f;%g;%.1f;%d\n",
-				i, v.Time.Format("2006-01-02 15:04:05"),
-				v.T, v.H, v.P, v.CO2,
-			)
-		}
-		err = flush()
-		if err != nil {
-			log.Fatalf("could not flush output file: %+v", err)
-		}
-	}
 
 	err = dev.Close()
 	if err != nil {
